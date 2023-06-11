@@ -1,9 +1,13 @@
 import config as c
 import re, time, datetime, math
+import speech_recognition as sr
+from pydub import AudioSegment
+from gtts import gTTS
 
 def message_process(msg, userId):
     return_msg = None
     stage = c.stage
+    
     
     # 管理員設置
     # stage 0
@@ -17,7 +21,7 @@ def message_process(msg, userId):
     if msg == '取消管理員':
         if userId in c.admins:
             c.admins.remove(userId)
-            return_msg = '完成, 已將取消您的管理員身分'
+            return_msg = '完成, 已經取消您的管理員身分'
         else:
             return_msg = '抱歉，您並非管理員' 
         return return_msg
@@ -50,6 +54,8 @@ def message_process(msg, userId):
             return_msg = '完成，已設定 ' + matches[0] + ' 的鬧鐘，鬧鐘將於 ' +  str(remaining_h) +' 小時 ' + str(remaining_m) + ' 分後響起。\n您可輸入 1~3 的數字，設置加法器的題數'
             c.alter_h = hours
             c.minutes = minutes
+            c.alarm_time = matches[0] # 更: c.alarm_time -> matches[0]
+            c.stage = 1 # 更: set stage
             print(return_msg)
         return return_msg
     
@@ -60,7 +66,7 @@ def message_process(msg, userId):
         if userId == c.target:
             return_msg = '取消失敗，您無法取消他人為您設置的鬧鐘'
         elif userId in c.admins:
-            return_msg = '完成，已取消設置原定於 ' + c.alarm_time + ' 響起的鬧鐘！'
+            return_msg = '完成，已取消設置原定於 ' + c.alarm_time + ' 響起的鬧鐘！' 
             c.stage = 0
         else:
             return_msg = '取消失敗，請成為管理者後才取消'
@@ -83,20 +89,49 @@ def message_process(msg, userId):
     
     # 已設置鬧鐘: 設置鈴聲
     # stage 2 -> 3
-    # TODO: mp3輸入 (不確定會長怎樣 先跳過)
+    # TODO: mp3輸入 (不確定會長怎樣 先跳過) ## mp3 & word done
     if stage == 2 and '鈴聲' in msg and ':' in msg:
         _, data = msg.split(':')
+        print(data)
         pattern = r'^(https?://)?(www\.)?[\w.-]+\.[a-zA-Z]{2,}(\/\S*)?$'
         # 1. Music Link
-        # if re.match(pattern, data):
-        #     ...
+        if re.match(pattern, data):
+            c.alarm_music = data
         # 2. Text
-        c.alarm_music = data
+        else:
+            tts=gTTS(text=data, lang='zh-tw')
+            tts.save("./static/text.mp3")
+            c.alarm_music = f"{c.webhook_url}/text.mp3"
+            # 轉換成的mp3會存到 static/text.mp3, url "{ngrok網址}/text.mp3" 可開啟text.mp3
         return_msg = '鈴聲設置完畢！'
         c.stage = 3
         return return_msg
 
     return return_msg
+
+# mp3 input 
+# SETUP: pip install speechrecognition 
+# SETUP: pip install pydub 
+# SETUP: install ffmpeg: https://github.com/BtbN/FFmpeg-Builds/releases or pip install ffmpeg
+# mp3會存到 static/sound.mp3, url "{ngrok網址}/sound.mp3" 可開啟sound.mp3
+# 設定正確的c.webhook_url
+   
+def audio_msg_process(audio_content, userId):
+    print("recv audio!")
+    return_msg = None
+    if c.stage == 2:
+        path='./static/sound.mp3' 
+        with open(path, 'wb') as fd:
+            for chunk in audio_content.iter_content():
+                fd.write(chunk)
+        return_msg = '鈴聲設置完畢！'
+        c.stage = 3
+        c.alarm_music = f"{c.webhook_url}/sound.mp3"
+        
+        return return_msg
+    return return_msg
+    
+
 
 # TODO: 這個函式會一直跑，檢查是不是該響了
 # 回傳：題目(c.exam_list) & 音訊資料(c.alarm_music) & 0/1 (要不要繼續叫)
