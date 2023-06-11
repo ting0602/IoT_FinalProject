@@ -7,6 +7,7 @@ from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage, AudioMessage
 import DAN, time, threading, random
 import config as c
+import linebot_config as lb
 from utils import *
 
 ServerURL = 'https://4.iottalk.tw' 
@@ -20,8 +21,8 @@ print("dm_name is ", DAN.profile['dm_name'])
 print("d_name is ", DAN.profile['d_name'])
 print("Server is ", ServerURL)
 
-line_bot_api = LineBotApi(c.token) #LineBot's Channel access token
-handler = WebhookHandler(c.secret)        #LineBot's Channel secret
+line_bot_api = LineBotApi(lb.token) #LineBot's Channel access token
+handler = WebhookHandler(lb.secret)        #LineBot's Channel secret
 user_id_set=set()                                         #LineBot's Friend's user id 
 app = Flask(__name__, static_folder="static") # set static folder
 

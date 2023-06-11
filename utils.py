@@ -1,4 +1,5 @@
 import config as c
+import linebot_config as lb
 import re, time, datetime, math
 import speech_recognition as sr
 from pydub import AudioSegment
@@ -101,7 +102,7 @@ def message_process(msg, userId):
         else:
             tts=gTTS(text=data, lang='zh-tw')
             tts.save("./static/text.mp3")
-            c.alarm_music = f"{c.webhook_url}/text.mp3"
+            c.alarm_music = f"{lb.webhook_url}/text.mp3"
             # 轉換成的mp3會存到 static/text.mp3, url "{ngrok網址}/text.mp3" 可開啟text.mp3
         return_msg = '鈴聲設置完畢！'
         c.stage = 3
@@ -126,7 +127,7 @@ def audio_msg_process(audio_content, userId):
                 fd.write(chunk)
         return_msg = '鈴聲設置完畢！'
         c.stage = 3
-        c.alarm_music = f"{c.webhook_url}/sound.mp3"
+        c.alarm_music = f"{lb.webhook_url}/sound.mp3"
         
         return return_msg
     return return_msg
