@@ -10,7 +10,7 @@ import config as c
 import linebot_config as lb
 from utils import *
 
-ServerURL = 'https://4.iottalk.tw' 
+ServerURL = 'https://7.iottalk.tw' 
 mac_addr = '119' + str(random.randint(100, 999))
 Reg_addr = mac_addr   # Note that the mac_addr generated in DAN.py always be the same cause using UUID !
 DAN.profile['dm_name']='Linebot'   # you can change this but should also add the DM in server
@@ -106,10 +106,13 @@ def callback():
 def get_sound():
     return send_from_directory("static", "sound.mp3") # 回傳 static/sound.mp3
 
-@app.route("/text.mp3") # 提供 sound.mp3 的下載連結
+@app.route("/text.mp3") # 提供 text.mp3 的下載連結
 def get_sound2():
     return send_from_directory("static", "text.mp3") # 回傳 static/sound.mp3
 
+@app.route("/link.mp3") # 提供 link.mp3 的下載連結
+def get_sound3():
+    return send_from_directory("static", "link.mp3") # 回傳 static/sound.mp3
 
 @handler.add(MessageEvent, message=AudioMessage)
 def handle_audio_message(event):
@@ -236,7 +239,8 @@ if __name__ == "__main__":
     except Exception as e:
         print(e)
     
-    app.run('127.0.0.1', port=32768, threaded=True, use_reloader=False)
+    # app.run('127.0.0.1', port=32768, threaded=True, use_reloader=False)
+    app.run('0.0.0.0', port=32768, threaded=True, use_reloader=False)
 
     
 

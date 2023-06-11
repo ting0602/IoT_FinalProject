@@ -4,6 +4,8 @@ import re, datetime, random, json
 import speech_recognition as sr
 from pydub import AudioSegment
 from gtts import gTTS
+from pytube import YouTube
+import os, requests
 
 # stage 1: 設置鬧鐘時間
 # stage 2: 設置鬧鐘題數
@@ -33,8 +35,26 @@ def message_process(msg, userId):
         else:
             return_msg = '抱歉，您並非管理員' 
         return return_msg
+
+    # 取消鬧鐘
+    # stage 1 -> 0
+    if stage >= 0 and msg == '取消鬧鐘':
+        # if userId == c.target:
+        #     return_msg = '取消失敗，您無法取消他人為您設置的鬧鐘'
+        # elif userId in c.admins:
+        #     return_msg = '完成，已取消設置原定於 ' + c.alarm_time + ' 響起的鬧鐘！' 
+        #     c.stage = 0
+        # else:
+        #     return_msg = '取消失敗，請成為管理者後才取消'
+        if userId == c.manager:
+            return_msg = '完成，已取消設置原定於 ' + c.alarm_time + ' 響起的鬧鐘！' 
+            reset_config()
+        else:
+            return_msg = '失敗，非設置鬧鐘者無法取消鬧鐘'
+        return return_msg
     
-    if stage == 3:
+    # 已經設好鬧鐘了
+    if stage >= 3:
         return return_msg
     
     # 設置鬧鐘
@@ -76,23 +96,6 @@ def message_process(msg, userId):
             c.manager = userId
             c.target = c.mention
         return return_msg
-    
-    # 取消鬧鐘
-    # stage 1 -> 0
-    if stage >= 0 and msg == '取消鬧鐘':
-        # if userId == c.target:
-        #     return_msg = '取消失敗，您無法取消他人為您設置的鬧鐘'
-        # elif userId in c.admins:
-        #     return_msg = '完成，已取消設置原定於 ' + c.alarm_time + ' 響起的鬧鐘！' 
-        #     c.stage = 0
-        # else:
-        #     return_msg = '取消失敗，請成為管理者後才取消'
-        if userId == c.manager:
-            return_msg = '完成，已取消設置原定於 ' + c.alarm_time + ' 響起的鬧鐘！' 
-        else:
-            return_msg = '失敗，非設置鬧鐘者無法取消鬧鐘'
-        return return_msg
-            
                 
     # 已設置鬧鐘: 設置題目數
     # stage 1 -> 2
@@ -102,7 +105,7 @@ def message_process(msg, userId):
         q_number = int(match.group())
         if q_number <=3 and q_number > 0:
             c.q_number = q_number
-            return_msg = '完成，已設置 ' + str(q_number) + ' 題，接著可設置鬧鐘音訊，可接受的輸入格式有：\n1. 直接傳送 mp3 音訊檔案\n2. 鈴聲:音樂網址\n3. 鈴聲:文字'
+            return_msg = '完成，已設置 ' + str(q_number) + ' 題，接著可設置鬧鐘音訊，可接受的輸入格式有：\n1. 直接傳送語音訊息\n2. 鈴聲:結尾為.mp3的網址\n3. 鈴聲:文字'
             c.stage = 2
         else:
             return_msg = '題數限制在 1~3 題，請輸入合法範圍內的數字'
@@ -111,12 +114,17 @@ def message_process(msg, userId):
     # 已設置鬧鐘: 設置鈴聲
     # stage 2 -> 3
     if stage == 2 and '鈴聲' in msg and ':' in msg and userId == c.manager:
-        _, data = msg.split(':')
+        # _, data = msg.split(':')[1]
+        data = msg.split(':', 1)[1]
         print(data)
         pattern = r'^(https?://)?(www\.)?[\w.-]+\.[a-zA-Z]{2,}(\/\S*)?$'
         # 1. Music Link
         if re.match(pattern, data):
-            c.alarm_music = data
+            if data.endswith('.mp3'):
+                link_mp3(data)
+            else:
+                yt_mp3(data)
+            c.alarm_music = f"{lb.webhook_url}/link.mp3"
         # 2. Text
         else:
             tts=gTTS(text=data, lang='zh-tw')
@@ -215,7 +223,39 @@ def reset_config():
     c.alarm_music = ''
     c.alarm_time = ''
     c.ans = -1
+    
+def yt_mp3(url):
+    target_path = "./static"
 
+    yt = YouTube(url)
+
+    video = yt.streams.filter(only_audio=True).first()
+
+    out_file = video.download(output_path=target_path)
+
+    base, ext = os.path.splitext(out_file)
+    print('path:',base, ext)
+    base = base.rsplit("\\", 1)[0]
+    print(base)
+    new_file = base + '/yt.mp3'
+    if os.path.exists(new_file):
+        os.remove(new_file)
+    os.rename(out_file, new_file)
+
+    print("target path = " + (new_file))
+    print("mp3 has been successfully downloaded.")
+
+def link_mp3(url):
+    
+    filename = './static/sound2.mp3'
+
+    response = requests.get(url)
+    response.raise_for_status()  # check state
+
+    with open(filename, 'wb') as file:
+        file.write(response.content)
+# link_mp3('https://s23.aconvert.com/convert/p3r68-cdx67/zwmbe-as3zk.mp3')
+# yt_mp3('https://youtube.com/shorts/DRTkSFGXHgY?feature=share')
 # c.admins.append('123')
 # c.mention = 'belle_id'
 # # c.manager = '123'
