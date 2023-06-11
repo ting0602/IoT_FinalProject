@@ -13,7 +13,10 @@ def message_process(msg, userId):
     return_msg = None
     stage = c.stage
     
-    
+    # helper
+    if msg in c.helper:
+        return_msg = c.helper_text
+        return return_msg
     # 管理員設置
     # stage 0
     if msg == '我是管理員':
@@ -77,13 +80,17 @@ def message_process(msg, userId):
     # 取消鬧鐘
     # stage 1 -> 0
     if stage >= 0 and msg == '取消鬧鐘':
-        if userId == c.target:
-            return_msg = '取消失敗，您無法取消他人為您設置的鬧鐘'
-        elif userId in c.admins:
+        # if userId == c.target:
+        #     return_msg = '取消失敗，您無法取消他人為您設置的鬧鐘'
+        # elif userId in c.admins:
+        #     return_msg = '完成，已取消設置原定於 ' + c.alarm_time + ' 響起的鬧鐘！' 
+        #     c.stage = 0
+        # else:
+        #     return_msg = '取消失敗，請成為管理者後才取消'
+        if userId == c.manager:
             return_msg = '完成，已取消設置原定於 ' + c.alarm_time + ' 響起的鬧鐘！' 
-            c.stage = 0
         else:
-            return_msg = '取消失敗，請成為管理者後才取消'
+            return_msg = '失敗，非設置鬧鐘者無法取消鬧鐘'
         return return_msg
             
                 
