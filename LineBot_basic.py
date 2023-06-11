@@ -5,7 +5,7 @@ from flask import Flask, request, abort, send_from_directory
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError 
 from linebot.models import MessageEvent, TextMessage, TextSendMessage, AudioMessage
-import DAN, time, threading, random
+import DAN, time, threading, random, json
 import config as c
 import linebot_config as lb
 from utils import *
@@ -24,6 +24,7 @@ print("Server is ", ServerURL)
 line_bot_api = LineBotApi(lb.token) #LineBot's Channel access token
 handler = WebhookHandler(lb.secret)        #LineBot's Channel secret
 user_id_set=set()                                         #LineBot's Friend's user id 
+group_id_set=set()                                         #LineBot's Friend's user id 
 app = Flask(__name__, static_folder="static") # set static folder
 
 
@@ -38,12 +39,33 @@ def loadUserId():
     except Exception as e:
         print(e)
         return None
+    
+def loadGroupId():
+    try:
+        idFile = open('groupfile', 'r')
+        idList = idFile.readlines()
+        idFile.close()
+        idList = idList[0].split(';')
+        idList.pop()
+        return idList
+    except Exception as e:
+        print(e)
+        return None
+
 
 
 def saveUserId(userId):
         idFile = open('idfile', 'a')
         idFile.write(userId+';')
         idFile.close()
+
+def saveGroupId(groupId):
+    # 改成只限一個群組
+        # idFile = open('groupfile', 'a')
+        idFile = open('groupfile', 'w')
+        idFile.write(groupId+';')
+        idFile.close()
+
 
 
 @app.route("/", methods=['GET'])
@@ -55,10 +77,29 @@ def callback():
     signature = request.headers['X-Line-Signature']    # get X-Line-Signature header value
     body = request.get_data(as_text=True)              # get request body as text
     print("Request body: " + body, "Signature: " + signature)
+    # get mention
     try:
         handler.handle(body, signature)                # handle webhook body
     except InvalidSignatureError:
         abort(400)
+    
+    # if c.stage == 0:
+    #     body = json.loads(body)
+    #     try:
+    #         mention_info = body["events"][0]["message"]["mention"]
+    #         # 只能標註一人 設置一人的鬧鐘
+    #         if len(mention_info["mentionees"]) == 1:
+    #             mention_user = mention_info["mentionees"][0]["userId"]
+    #             c.mention = mention_user
+    #             userId = body["events"][0]["source"]["userId"]
+    #             c.send_mention = userId
+    #             print("mention user:", mention_user)
+    #         print("get mention:", mention_info)
+    #     except:
+    #         # no mention
+    #         c.mention = ''
+    #         c.send_mention = ''
+            
     return 'OK'
 
 @app.route("/sound.mp3") # 提供 sound.mp3 的下載連結
@@ -74,37 +115,103 @@ def get_sound2():
 def handle_audio_message(event):
     print("audio msg!")
     userId = event.source.user_id
+    groupId = ''
+    try:
+        groupId = event.source.group_id
+        c.groupId = groupId
+    except:
+        # not group
+        pass
+    print("group id", groupId)
     if not userId in user_id_set:
         user_id_set.add(userId)
         saveUserId(userId)
+    if not groupId in group_id_set:
+        group_id_set.add(groupId)
+        saveGroupId(groupId)
     audio_content = line_bot_api.get_message_content(event.message.id)
     result_msg = audio_msg_process(audio_content, userId)
+    print("audio msg:", result_msg)
     DAN.push('line_in', result_msg)
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
+    print("text msg")
     userId = event.source.user_id
+    groupId = ''
+    try:
+        groupId = event.source.group_id
+        c.groupId = groupId
+    except:
+        # not group
+        pass
     if not userId in user_id_set:
         user_id_set.add(userId)
         saveUserId(userId)
+    if not groupId in group_id_set:
+        group_id_set.add(groupId)
+        saveGroupId(groupId)
+        
     msg = event.message.text
+    
+    body = request.get_data(as_text=True)
+    body = json.loads(body)
+    metion_process(body)
     result_msg = message_process(msg, userId)
+    if result_msg:
+        print("text result: ", result_msg)
     # TODO: modify the push Msg
     # TODO: DAN.push()
     DAN.push('line_in', result_msg)
 
 
 # TODO: DAN.pull()
+times = 0
+sleep_times = 0
 def pull_odf():
     while 1:
         ODF = DAN.pull('line_out')
+        # TODO: 之後改用 DAN.pull
+        # adder_msg = DAN.pull('add_msg')
+        adder_msg = random.randint(0, 1023)
         if c.stage == 3:
-            check_alarm()
-        if ODF:
+            msg, music, state = check_alarm()
+            if msg:
+                # 回傳題目
+                # TODO: 回傳給加法器
+                line_bot_api.push_message(c.groupId,TextSendMessage(text=msg))
+        
+        # 鬧鐘開始響，處理
+        # FIXME: 還不確定加法器回傳值
+        if c.stage == 4:
+            # 正常回復
+            # if int(adder_msg) == c.ans:
+            if check_ans():
+                times += 1
+            # 貪睡
+            # FIXME: 要改寫條件 我先亂寫
+            elif int(adder_msg) == 1023:
+                times = 0
+                sleep_times += 1
+            elif int(adder_msg) == 0:
+                times = 0
+                sleep_times += 1
+            
+            # 判斷是否停止 / 貪睡
+            if times > 5:
+                c.q_number -= 1
+                if c.q_number > 0:
+                    msg = generate_exam()
+                    line_bot_api.push_message(c.groupId,TextSendMessage(text=msg))
+            elif sleep_times > 3:
+                alarm_sleep()
+                c.stage = 3
+
+        elif ODF:
             print("line_out", ODF)
-            for userId in user_id_set:
-                line_bot_api.push_message(userId,TextSendMessage(text=ODF[0]))   # Reply API example
-        time.sleep(5)
+            # for userId in user_id_set:
+            line_bot_api.push_message(c.groupId,TextSendMessage(text=ODF[0]))   # Reply API example
+        time.sleep(3)
 
 t = threading.Thread(target=pull_odf)
 t.daemon = True
@@ -114,10 +221,18 @@ if __name__ == "__main__":
 
     idList = loadUserId()
     if idList: user_id_set = set(idList)
+    
+    groupList = loadGroupId()
+    if groupList: group_id_set = set(groupList)
 
+    # try:
+    #     for userId in user_id_set:
+    #         line_bot_api.push_message(userId, TextSendMessage(text='LineBot is ready for you.'))  # Push API example
+    # except Exception as e:
+    #     print(e)
     try:
-        for userId in user_id_set:
-            line_bot_api.push_message(userId, TextSendMessage(text='LineBot is ready for you.'))  # Push API example
+        for groupId in group_id_set:
+            line_bot_api.push_message(groupId, TextSendMessage(text='鬧鐘準備中\n請先輸入隨意值，得以喚醒智慧鬧鐘'))  # Push API example
     except Exception as e:
         print(e)
     

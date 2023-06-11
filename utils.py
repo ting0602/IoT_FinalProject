@@ -1,10 +1,14 @@
 import config as c
 import linebot_config as lb
-import re, time, datetime, math
+import re, datetime, random, json
 import speech_recognition as sr
 from pydub import AudioSegment
 from gtts import gTTS
 
+# stage 1: 設置鬧鐘時間
+# stage 2: 設置鬧鐘題數
+# stage 3: 設置鬧鐘鈴聲
+# stage 4: 開始響
 def message_process(msg, userId):
     return_msg = None
     stage = c.stage
@@ -32,14 +36,23 @@ def message_process(msg, userId):
     
     # 設置鬧鐘
     # stage 0 -> 1
-    pattern = r"鬧鐘\s?(\d{1,2}:\d{2})"
+    # pattern = r"鬧鐘\s?(\d{1,2}:\d{2})"
+    pattern = r"@(\w+)\s?鬧鐘\s?(\d{1,2}:\d{2})"
     matches = re.findall(pattern, msg)
     if len(matches) == 1 and stage == 0:  
-        hours, minutes = matches[0].split(':')
+        info = matches[0][1]
+        hours, minutes = info.split(':')
         hours = int(hours)
         minutes = int(minutes)
-        if hours > 24 or minutes > 60:
+        if userId not in c.admins:
+            return_msg = '抱歉，您並非管理員\n請先輸入"我是管理員"以獲取管理員身分' 
+        elif hours > 24 or minutes > 60:
             return_msg = '請輸入合理時間'
+        elif c.send_mention != userId:
+            print("my id", userId)
+            print("send id", c.send_mention)
+            print("mention ", c.mention)
+            return_msg = '失敗，請使用正確的標記格式' 
         else:
             # current_time = time.time()
             c_hours = datetime.datetime.now().hour
@@ -52,18 +65,18 @@ def message_process(msg, userId):
                 remaining_h -= 1
             if remaining_h < 0:
                 remaining_h += 24
-            return_msg = '完成，已設定 ' + matches[0] + ' 的鬧鐘，鬧鐘將於 ' +  str(remaining_h) +' 小時 ' + str(remaining_m) + ' 分後響起。\n您可輸入 1~3 的數字，設置加法器的題數'
-            c.alter_h = hours
-            c.minutes = minutes
-            c.alarm_time = matches[0] # 更: c.alarm_time -> matches[0]
+            return_msg = '完成，已設定 ' + info + ' 的鬧鐘，鬧鐘將於 ' +  str(remaining_h) +' 小時 ' + str(remaining_m) + ' 分後響起。\n您可輸入 1~3 的數字，設置加法器的題數'
+            c.alarm_h = hours
+            c.alarm_m = minutes
+            c.alarm_time = info # 更: c.alarm_time -> matches[0]
             c.stage = 1 # 更: set stage
-            print(return_msg)
+            c.manager = userId
+            c.target = c.mention
         return return_msg
     
     # 取消鬧鐘
     # stage 1 -> 0
     if stage >= 0 and msg == '取消鬧鐘':
-        # TODO: 還沒寫設置 target member (需要先抓目標id，或是取消這部分)
         if userId == c.target:
             return_msg = '取消失敗，您無法取消他人為您設置的鬧鐘'
         elif userId in c.admins:
@@ -78,7 +91,7 @@ def message_process(msg, userId):
     # stage 1 -> 2
     pattern = r'^[1-9]\d*$'
     match = re.match(pattern, msg)
-    if stage == 1 and match:
+    if stage == 1 and match and userId == c.manager:
         q_number = int(match.group())
         if q_number <=3 and q_number > 0:
             c.q_number = q_number
@@ -90,8 +103,7 @@ def message_process(msg, userId):
     
     # 已設置鬧鐘: 設置鈴聲
     # stage 2 -> 3
-    # TODO: mp3輸入 (不確定會長怎樣 先跳過) ## mp3 & word done
-    if stage == 2 and '鈴聲' in msg and ':' in msg:
+    if stage == 2 and '鈴聲' in msg and ':' in msg and userId == c.manager:
         _, data = msg.split(':')
         print(data)
         pattern = r'^(https?://)?(www\.)?[\w.-]+\.[a-zA-Z]{2,}(\/\S*)?$'
@@ -104,7 +116,7 @@ def message_process(msg, userId):
             tts.save("./static/text.mp3")
             c.alarm_music = f"{lb.webhook_url}/text.mp3"
             # 轉換成的mp3會存到 static/text.mp3, url "{ngrok網址}/text.mp3" 可開啟text.mp3
-        return_msg = '鈴聲設置完畢！'
+        return_msg = '鈴聲設置完畢，您已完成所有的鬧鐘設置！'
         c.stage = 3
         return return_msg
 
@@ -114,6 +126,7 @@ def message_process(msg, userId):
 # SETUP: pip install speechrecognition 
 # SETUP: pip install pydub 
 # SETUP: install ffmpeg: https://github.com/BtbN/FFmpeg-Builds/releases or pip install ffmpeg
+# ffmpeg 下載教學 (比較詳細): https://vocus.cc/article/64701a2cfd897800014daed0
 # mp3會存到 static/sound.mp3, url "{ngrok網址}/sound.mp3" 可開啟sound.mp3
 # 設定正確的c.webhook_url
    
@@ -125,24 +138,89 @@ def audio_msg_process(audio_content, userId):
         with open(path, 'wb') as fd:
             for chunk in audio_content.iter_content():
                 fd.write(chunk)
-        return_msg = '鈴聲設置完畢！'
+        return_msg = '鈴聲設置完畢，您已完成所有的鬧鐘設置！'
         c.stage = 3
         c.alarm_music = f"{lb.webhook_url}/sound.mp3"
-        
-        return return_msg
     return return_msg
     
+def metion_process(body):
+    if c.stage == 0:
+        try:
+            mention_info = body["events"][0]["message"]["mention"]
+            # 只能標註一人 設置一人的鬧鐘
+            if len(mention_info["mentionees"]) == 1:
+                mention_user = mention_info["mentionees"][0]["userId"]
+                c.mention = mention_user
+                userId = body["events"][0]["source"]["userId"]
+                c.send_mention = userId
+                print("mention user:", mention_user)
+            print("get mention:", mention_info)
+        except:
+            # no mention
+            c.mention = ''
+            c.send_mention = ''
 
-
-# TODO: 這個函式會一直跑，檢查是不是該響了
-# 回傳：題目(c.exam_list) & 音訊資料(c.alarm_music) & 0/1 (要不要繼續叫)
+# stage = 3 時作用
+# TODO: 回傳：題目(X) & 音訊資料(c.alarm_music) & 0/1 (要不要繼續叫)
 def check_alarm():
     c_hours = datetime.datetime.now().hour
     c_minutes = datetime.datetime.now().minute
-    if c_hours == c.alarm_h and c_minutes == c.alarm_m:
-        # TODO: 啟動鬧鐘
-        # 賴床：
-        # 結束：重設config各值
+    # print(int(c_hours),c.alarm_h, int(c_minutes), c.alarm_m)
+    if int(c_hours) == c.alarm_h and int(c_minutes) == c.alarm_m:
+        c.stage = 4
+        return_msg = generate_exam()
         print("start")
+        return return_msg, c.alarm_music, 1
+    return None, None, 0
+
+# 生成題目
+def generate_exam():
+    c.ans = random.randint(0, 15)
+    num1 = random.randint(0, 15)
+    num2 = abs(c.ans - num1)
+    exam = '該起床囉！\n題目：X + ' + str(num1) + ' = ' + str(num2)
+    print(exam)
+    return exam
+
+def check_ans(num):
+    # num: 0 ~ 1023
+    # TODO: 對答案
+    return True
+
+# 貪睡 鬧鐘調整時間
+def alarm_sleep():
+    # add 5 min
+    if c.alarm_m >= 55:
+        c.alarm_m = (c.alarm_m + 5) - 60
+        c.alarm_h += 1
+    if c.alarm_h > 23:
+        c.alarm_h = 0
         
-# message_process('鬧鐘12:35', '123')
+def reset_config():
+    c.manager = ''
+    c.mention = ''
+    c.send_mention = ''
+    c.target = ''
+    c.q_number = 0
+    c.stage = 0
+    c.alarm_h = 0
+    c.alarm_m = 0
+    c.alarm_music = ''
+    c.alarm_time = ''
+    c.ans = -1
+
+# c.admins.append('123')
+# c.mention = 'belle_id'
+# # c.manager = '123'
+# c.send_mention = '123'
+  
+# msg = message_process('@belle 鬧鐘09:35', '123')
+# print(msg)
+
+# c.alarm_h = 13
+# c.alarm_m = 43
+# msg = check_alarm()
+# print(msg)
+# c.ans = random.randint(0, 15)
+# generate_exam()
+# print("x = ", c.ans)

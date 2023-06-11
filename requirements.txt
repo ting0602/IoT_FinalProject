@@ -1,0 +1,6 @@
+Flask==2.1.2
+gtts==2.3.2
+line_bot_sdk==2.3.0
+pydub==0.25.1
+Requests==2.31.0
+SpeechRecognition==3.10.0
