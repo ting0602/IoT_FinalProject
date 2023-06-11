@@ -155,6 +155,9 @@ def audio_msg_process(audio_content, userId):
                 fd.write(chunk)
         return_msg = '鈴聲設置完畢，您已完成所有的鬧鐘設置！'
         c.stage = 3
+        
+        audio = AudioSegment.from_file(path, format='mp3')
+        audio.export(path, format='mpga')
         c.alarm_music = f"{lb.webhook_url}/sound.mp3"
     return return_msg
     
@@ -237,23 +240,29 @@ def yt_mp3(url):
     print('path:',base, ext)
     base = base.rsplit("\\", 1)[0]
     print(base)
-    new_file = base + '/yt.mp3'
+    new_file = base + '/link.mp3'
     if os.path.exists(new_file):
         os.remove(new_file)
     os.rename(out_file, new_file)
+    
+    audio = AudioSegment.from_file(new_file, format='mp3')
+    audio.export(new_file, format='mpga')
 
     print("target path = " + (new_file))
     print("mp3 has been successfully downloaded.")
 
 def link_mp3(url):
     
-    filename = './static/sound2.mp3'
+    filename = './static/link.mp3'
 
     response = requests.get(url)
     response.raise_for_status()  # check state
 
     with open(filename, 'wb') as file:
         file.write(response.content)
+        
+    audio = AudioSegment.from_file(filename, format='mp3')
+    audio.export(filename, format='mpga')
 # link_mp3('https://s23.aconvert.com/convert/p3r68-cdx67/zwmbe-as3zk.mp3')
 # yt_mp3('https://youtube.com/shorts/DRTkSFGXHgY?feature=share')
 # c.admins.append('123')
