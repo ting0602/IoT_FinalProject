@@ -10,7 +10,7 @@ import config as c
 import linebot_config as lb
 from utils import *
 
-ServerURL = 'https://demo.iottalk.tw' 
+ServerURL = 'https://4.iottalk.tw' 
 mac_addr = '119' + str(random.randint(100, 999))
 Reg_addr = mac_addr   # Note that the mac_addr generated in DAN.py always be the same cause using UUID !
 DAN.profile['dm_name']='Linebot'   # you can change this but should also add the DM in server
@@ -169,61 +169,86 @@ def handle_message(event):
 
 
 # TODO: DAN.pull()
-times = 0
-sleep_times = 0
+# times = 0
+# sleep_times = 0
 def pull_odf():
     while 1:
         ODF = DAN.pull('line_out')
         # TODO: 之後改用 DAN.pull
         # adder_msg = DAN.pull('add_msg')
-        adder_msg = random.randint(0, 1023)
-        state = 0
+        
+        
+        pattern = r'^[1-9]\d*$'  # 匹配正整数的正则表达式
+        # True: number
+        # False: text / None
+        if ODF:
+            msg_type = re.match(pattern, str(ODF[0]))
+        else:
+            msg_type = False
+        
+        if ODF is not None and not msg_type:
+            print("line_out", ODF)
+            # for userId in user_id_set:
+            line_bot_api.push_message(c.groupId,TextSendMessage(text=ODF[0]))   # Reply API example
+            
+        start_alarm = False
         if c.stage == 3:
-            msg = check_alarm()
-            if msg:
+            start_alarm = check_alarm()
+            if start_alarm:
                 # 回傳題目
+                msg = generate_exam()
                 line_bot_api.push_message(c.groupId,TextSendMessage(text=msg))
                 DAN.push('line_in', [None, c.alarm_music, c.signal])
         
         # 鬧鐘開始響，處理
-        # FIXME: 還沒取可變電阻的值:num
-        num = 100
-        if c.stage == 4 and c.signal:
+        # 監控可變電阻傳入的值
+        if c.stage == 4 and c.signal and msg_type:
+            adder_msg = ODF[0]
+            print("adder_msg is", adder_msg)
+            if start_alarm:
+                # 回傳題目
+                # line_bot_api.push_message(c.groupId,TextSendMessage(text=start_alarm))
+                DAN.push('line_in', [None, c.alarm_music, c.signal])
+
             # 正常回復
-            # if int(adder_msg) == c.ans:
-            
-            if check_ans(num):
-                times += 1
+            if check_ans(ODF[0]):
+                c.times += 1
             # 貪睡
             # FIXME: 要改寫條件 我先亂寫
-            elif int(adder_msg) == 1023:
-                times = 0
-                sleep_times += 1
-            elif int(adder_msg) == 0:
-                times = 0
-                sleep_times += 1
+            elif int(adder_msg) == 1024:
+                c.times = 0
+                c.sleep_times += 1
+            elif int(adder_msg) == 97:
+                c.times = 0
+                c.sleep_times += 1
                 
             # 判斷是否停止 / 貪睡
-            if times > 5:
+            if c.times >= 1:
                 c.q_number -= 1
                 if c.q_number > 0:
                     msg = generate_exam()
                     line_bot_api.push_message(c.groupId,TextSendMessage(text=msg))
                 else:
+                    msg = '鬧鐘已停止，成功起床的你好棒！'
+                    line_bot_api.push_message(c.groupId,TextSendMessage(text=msg))
                     reset_config()
                     DAN.push('line_in', [None, None, 0])
+                c.times = 0
+                c.sleep_times = 0
                     
-            elif sleep_times > 3:
+            elif c.sleep_times >= 1:
                 msg = '貪睡模式，鬧鐘將於 5 分鐘後再次響起'
+                line_bot_api.push_message(c.groupId,TextSendMessage(text=msg))
                 DAN.push('line_in', [None, None, 0])
+                c.times = 0
+                c.sleep_times = 0
                 alarm_sleep()
 
-        elif ODF:
-            print("line_out", ODF)
-            # for userId in user_id_set:
-            line_bot_api.push_message(c.groupId,TextSendMessage(text=ODF[0]))   # Reply API example
-            
-        
+        # if ODF and not msg_type:
+        #     print("line_out", ODF)
+        #     # for userId in user_id_set:
+        #     line_bot_api.push_message(c.groupId,TextSendMessage(text=ODF[0]))   # Reply API example
+
         time.sleep(3)
 
 t = threading.Thread(target=pull_odf)
@@ -237,12 +262,6 @@ if __name__ == "__main__":
     
     groupList = loadGroupId()
     if groupList: group_id_set = set(groupList)
-
-    # try:
-    #     for userId in user_id_set:
-    #         line_bot_api.push_message(userId, TextSendMessage(text='LineBot is ready for you.'))  # Push API example
-    # except Exception as e:
-    #     print(e)
     try:
         for groupId in group_id_set:
             line_bot_api.push_message(groupId, TextSendMessage(text='鬧鐘準備中\n請先輸入隨意值，得以喚醒智慧鬧鐘'))  # Push API example

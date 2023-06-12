@@ -105,7 +105,7 @@ def message_process(msg, userId):
         q_number = int(match.group())
         if q_number <=3 and q_number > 0:
             c.q_number = q_number
-            return_msg = '完成，已設置 ' + str(q_number) + ' 題，接著可設置鬧鐘音訊，可接受的輸入格式有：\n1. 直接傳送語音訊息\n2. 鈴聲:結尾為.mp3的網址\n3. 鈴聲:文字'
+            return_msg = '完成，已設置 ' + str(q_number) + ' 題，接著可設置鬧鐘音訊，可接受的輸入格式有：\n1. 直接傳送語音訊息\n2. 鈴聲:結尾為 .mp3 的網址或 YouTube 連結\n3. 鈴聲:文字'
             c.stage = 2
         else:
             return_msg = '題數限制在 1~3 題，請輸入合法範圍內的數字'
@@ -128,7 +128,7 @@ def message_process(msg, userId):
         # 2. Text
         else:
             tts=gTTS(text=data, lang='zh-tw')
-            tts.save("./static/text.mp3")
+            tts.save("./static2/text.mp3")
             c.alarm_music = f"{lb.webhook_url}/text.mp3"
             # 轉換成的mp3會存到 static/text.mp3, url "{ngrok網址}/text.mp3" 可開啟text.mp3
         return_msg = '鈴聲設置完畢，您已完成所有的鬧鐘設置！'
@@ -149,7 +149,7 @@ def audio_msg_process(audio_content, userId):
     print("recv audio!")
     return_msg = None
     if c.stage == 2:
-        path='./static/sound.mp3' 
+        path='./static2/sound.mp3' 
 
         with open(path, 'wb') as fd:
             for chunk in audio_content.iter_content():
@@ -185,25 +185,35 @@ def check_alarm():
     # print(int(c_hours),c.alarm_h, int(c_minutes), c.alarm_m)
     if int(c_hours) == c.alarm_h and int(c_minutes) == c.alarm_m:
         c.stage = 4
-        return_msg = generate_exam()
-        print("start")
+        # return_msg = generate_exam()
+        # print("start")
         c.signal = 1
-        return return_msg
-    return None
+        return True
+    return False
 
 # 生成題目
 def generate_exam():
-    c.ans = random.randint(0, 15)
-    num1 = random.randint(0, 15)
-    num2 = abs(c.ans - num1)
-    exam = '該起床囉！\n題目：X + ' + str(num1) + ' = ' + str(num2)
+    c.ans = random.randint(1, 15)
+    num1 = random.randint(1, 15)
+    num2  = num1 - c.ans
+    exam = '該起床囉！\n題目：X + ' + str(num2) + ' = ' + str(num1)
     print(exam)
     return exam
 
 def check_ans(num):
-    # num: 0 ~ 1023
-    # TODO: 對答案
-    return True
+    num = int(num)
+    n1 = (num-1) & 64
+    n2 = (num-1) & 128
+    n3 = (num-1) & 256
+    n4 = (num-1) & 512
+
+    ans = int(bin(n1)[2]) + int(bin(n2)[2])*2 + int(bin(n3)[2])*4 + int(bin(n4)[2])*8
+    print("your ans:", ans, c.ans)
+    # num: 96 ~ 1023
+    
+    if ans == c.ans:
+        return True
+    return False
 
 # 貪睡 鬧鐘調整時間
 def alarm_sleep():
@@ -229,9 +239,11 @@ def reset_config():
     c.alarm_time = ''
     c.ans = -1
     c.signal = 0
+    c.times = 0
+    c.sleep_times = 0
     
 def yt_mp3(url):
-    target_path = "./static"
+    target_path = "./static2"
 
     yt = YouTube(url)
 
@@ -256,7 +268,7 @@ def yt_mp3(url):
 
 def link_mp3(url):
     
-    filename = './static/link.mp3'
+    filename = './static2/link.mp3'
 
     response = requests.get(url)
     response.raise_for_status()  # check state
@@ -264,22 +276,5 @@ def link_mp3(url):
     with open(filename, 'wb') as file:
         file.write(response.content)
         
-    audio = AudioSegment.from_file(filename, format='mp3')
-    audio.export(filename, format='mpga')
-# link_mp3('https://s23.aconvert.com/convert/p3r68-cdx67/zwmbe-as3zk.mp3')
-# yt_mp3('https://youtube.com/shorts/DRTkSFGXHgY?feature=share')
-# c.admins.append('123')
-# c.mention = 'belle_id'
-# # c.manager = '123'
-# c.send_mention = '123'
-  
-# msg = message_process('@belle 鬧鐘09:35', '123')
-# print(msg)
-
-# c.alarm_h = 13
-# c.alarm_m = 43
-# msg = check_alarm()
-# print(msg)
-# c.ans = random.randint(0, 15)
-# generate_exam()
-# print("x = ", c.ans)
+    # audio = AudioSegment.from_file(filename, format='mp3')
+    # audio.export(filename, format='mpga')
