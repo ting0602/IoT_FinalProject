@@ -5,7 +5,7 @@ import speech_recognition as sr
 from pydub import AudioSegment
 from gtts import gTTS
 from pytube import YouTube
-import os, requests
+import os, requests, io
 
 # stage 1: 設置鬧鐘時間
 # stage 2: 設置鬧鐘題數
@@ -150,14 +150,13 @@ def audio_msg_process(audio_content, userId):
     return_msg = None
     if c.stage == 2:
         path='./static/sound.mp3' 
+
         with open(path, 'wb') as fd:
             for chunk in audio_content.iter_content():
                 fd.write(chunk)
         return_msg = '鈴聲設置完畢，您已完成所有的鬧鐘設置！'
         c.stage = 3
         
-        audio = AudioSegment.from_file(path, format='mp3')
-        audio.export(path, format='mpga')
         c.alarm_music = f"{lb.webhook_url}/sound.mp3"
     return return_msg
     
@@ -179,7 +178,7 @@ def metion_process(body):
             c.send_mention = ''
 
 # stage = 3 時作用
-# TODO: 回傳：題目(X) & 音訊資料(c.alarm_music) & 0/1 (要不要繼續叫)
+# TODO: 回傳：題目(X)
 def check_alarm():
     c_hours = datetime.datetime.now().hour
     c_minutes = datetime.datetime.now().minute
@@ -188,8 +187,9 @@ def check_alarm():
         c.stage = 4
         return_msg = generate_exam()
         print("start")
-        return return_msg, c.alarm_music, 1
-    return None, None, 0
+        c.signal = 1
+        return return_msg
+    return None
 
 # 生成題目
 def generate_exam():
@@ -213,6 +213,8 @@ def alarm_sleep():
         c.alarm_h += 1
     if c.alarm_h > 23:
         c.alarm_h = 0
+    c.signal = 0
+    c.stage = 3
         
 def reset_config():
     c.manager = ''
@@ -223,9 +225,10 @@ def reset_config():
     c.stage = 0
     c.alarm_h = 0
     c.alarm_m = 0
-    c.alarm_music = ''
+    c.alarm_music = None
     c.alarm_time = ''
     c.ans = -1
+    c.signal = 0
     
 def yt_mp3(url):
     target_path = "./static"
@@ -245,8 +248,8 @@ def yt_mp3(url):
         os.remove(new_file)
     os.rename(out_file, new_file)
     
-    audio = AudioSegment.from_file(new_file, format='mp3')
-    audio.export(new_file, format='mpga')
+    # audio = AudioSegment.from_file(new_file, format='mp3')
+    # audio.export(new_file, format='mpga')
 
     print("target path = " + (new_file))
     print("mp3 has been successfully downloaded.")
