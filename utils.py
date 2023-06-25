@@ -221,10 +221,13 @@ def alarm_sleep():
     if c.alarm_m >= 55:
         c.alarm_m = (c.alarm_m + 5) - 60
         c.alarm_h += 1
-    if c.alarm_h > 23:
-        c.alarm_h = 0
+        if c.alarm_h > 23:
+            c.alarm_h = 0
+    else:
+        c.alarm_m += 5
     c.signal = 0
     c.stage = 3
+    print('sleep time', c.alarm_h, c.alarm_m)
         
 def reset_config():
     c.manager = ''

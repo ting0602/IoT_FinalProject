@@ -203,6 +203,7 @@ def pull_odf():
         # 鬧鐘開始響，處理
         # 監控可變電阻傳入的值
         if c.stage == 4 and c.signal and msg_type:
+            DAN.push('line_in', [None, c.alarm_music, 1])
             adder_msg = ODF[0]
             print("adder_msg is", adder_msg)
             if start_alarm:
