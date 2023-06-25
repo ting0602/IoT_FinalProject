@@ -128,7 +128,7 @@ def message_process(msg, userId):
         # 2. Text
         else:
             tts=gTTS(text=data, lang='zh-tw')
-            tts.save("./static2/text.mp3")
+            tts.save("./static/text.mp3")
             c.alarm_music = f"{lb.webhook_url}/text.mp3"
             # 轉換成的mp3會存到 static/text.mp3, url "{ngrok網址}/text.mp3" 可開啟text.mp3
         return_msg = '鈴聲設置完畢，您已完成所有的鬧鐘設置！'
@@ -149,7 +149,7 @@ def audio_msg_process(audio_content, userId):
     print("recv audio!")
     return_msg = None
     if c.stage == 2:
-        path='./static2/sound.mp3' 
+        path='./static/sound.mp3' 
 
         with open(path, 'wb') as fd:
             for chunk in audio_content.iter_content():
@@ -246,7 +246,7 @@ def reset_config():
     c.sleep_times = 0
     
 def yt_mp3(url):
-    target_path = "./static2"
+    target_path = "./static"
 
     yt = YouTube(url)
 
@@ -271,7 +271,7 @@ def yt_mp3(url):
 
 def link_mp3(url):
     
-    filename = './static2/link.mp3'
+    filename = './static/link.mp3'
 
     response = requests.get(url)
     response.raise_for_status()  # check state
