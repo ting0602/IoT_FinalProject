@@ -9,13 +9,9 @@
 ### 組員
 109550134 梁詠晴 0810756 高維廣
 ### 摘要
-我們的期末專題旨在利用IoTtalk平台結合LINE Bot、NodeMCU和加法器，開發一個讓人神智清醒的鬧鐘系統，幫助大家克服因作息不正常等因素導致難以在預計時間起床的問題。
+我們的期末專題旨在利用 IoTtalk 平台結合 LINE Bot、NodeMCU 和加法器，開發一個需要使用加法器解題才能關閉的鬧鐘系統，幫助大家克服起床的難題。
 
-首先，我們將建立一個LINE Bot帳號，讓室友們和LINE Bot帳號加入同一個群組。這樣室友就能夠從遠方使用手機，向LINE Bot輸入特定的關鍵字，觸發鬧鐘系統。透過IoTtalk平台的連接，這個指令將被傳遞給鬧鐘設備。
-
-管理者可以設定鬧鐘響鈴和關閉的時間、決定貪睡功能是否開啟、決定對方要完成的挑戰項目跟題數、傳送語音訊息、指定鬧鐘鈴聲、傳送文字並透過TTS轉換播出。我們使用LM386晶片設計出放大器電路，可以有效提高鬧鐘音量。當鬧鐘響起後，床上的人將在LINE群組中收到由LINE Bot發送的題目，床上的人需要醒來看手機的訊息，根據訊息內容使用床邊的加法器調整可變電阻，解開題目並得到正確答案，鬧鐘才會停止。此外，我們還打算擴充更多功能，讓這個鬧鐘更加人性化。
-
-這樣的設計可以有效地讓人保持清醒，因為他們需要在睡意煩擾下思考和解決問題，解開題目的同時目標也已經完全清醒了，這種互動和挑戰性的解題過程可以幫助目標迅速清醒，讓他們成功拒絕被窩的誘惑！
+透過將智慧鬧鐘加入宿舍群組，室友們可以在群組內對鬧鐘進行客製化設定。可設定項目包括鬧鐘使用對象、鬧鐘時間、數學題數、鈴聲輸入。當鬧鐘響起後，床上的人需要醒來看手機的題目，並使用床邊的加法器，調整上面的可變電阻、按壓實體按鈕來解開題目，答題正確鬧鐘才會停止。這樣的設計可以有效地讓人保持清醒，成功拒絕被窩的誘惑！
 ### 雲端連結
 [Google Drive](https://drive.google.com/drive/folders/1slHWqAkRcl_rViRqjXJkpGxVoBGZ4hJr?usp=drive_link)
 ### Demo
@@ -53,6 +49,27 @@ python LineBot_basic.py
 ```
 接著把獲得的網址到 Line Developers 網站設定成這個 LineBot 的 webhook
 ### Step5. 使用 IoTTalk 連接 IDF 和 ODF
+連接方式可參考雲端中專題成果報告書中的 IoTTalk 專案架構部分
+### Step6. NodeMCU程式燒入、接線
+依照 https://github.com/IoTtalk/ArduTalk-for-NodeMCU/ 內的說明下載 Arduino 並完成設定後，下載 2.6.3 版本的 ESP8266 函式庫，執行以下指令：
+```
+git clone https://github.com/earlephilhower/ESP8266Audio
+```
+並把 ```src/AudioFileSourceICYStream.cpp``` 內的第53行 ```http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS)``` 刪掉
+
+將下載到的資料夾移到 ```C:\Users\[username]\AppData\Local\Arduino15\packages\esp8266\hardware\esp8266\2.6.3\libraries```
+
+調整Arduino的設定：
+
+Tools->Upload Speed->115200
+
+Tools->lwIP Variant->V2 Higher Bandwidth
+
+Tools->CPU Frequency->160MHz
+
+點選Upload燒入到板子上，建立Wi-Fi熱點，把NodeMCU的Rx接腳接上自製的放大器音樂輸入端，並完成接地接線即可
+
+HINT: 加法器的接線可參考 c 的硬體設備連接圖
 
 
 
