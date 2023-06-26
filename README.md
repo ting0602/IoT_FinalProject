@@ -69,7 +69,7 @@ Tools->CPU Frequency->160MHz
 
 點選Upload燒入到板子上，建立Wi-Fi熱點，把NodeMCU的Rx接腳接上自製的放大器音樂輸入端，並完成接地接線即可
 
-HINT: 加法器的接線可參考 c 的硬體設備連接圖
+HINT: 加法器的接線可參考專題成果報告書中的硬體設備連接圖
 
 
 
