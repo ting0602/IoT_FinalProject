@@ -178,7 +178,6 @@ def metion_process(body):
             c.send_mention = ''
 
 # stage = 3 時作用
-# TODO: 回傳：題目(X)
 def check_alarm():
     c_hours = datetime.datetime.now().hour
     c_minutes = datetime.datetime.now().minute

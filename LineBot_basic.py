@@ -163,18 +163,14 @@ def handle_message(event):
     result_msg = message_process(msg, userId)
     if result_msg:
         print("text result: ", result_msg)
-    # TODO: modify the push Msg
-    # TODO: DAN.push()
     DAN.push('line_in', [result_msg, None, c.signal])
 
 
-# TODO: DAN.pull()
 # times = 0
 # sleep_times = 0
 def pull_odf():
     while 1:
         ODF = DAN.pull('line_out')
-        # TODO: 之後改用 DAN.pull
         # adder_msg = DAN.pull('add_msg')
         
         
@@ -215,7 +211,6 @@ def pull_odf():
             if check_ans(ODF[0]):
                 c.times += 1
             # 貪睡
-            # FIXME: 要改寫條件 我先亂寫
             elif int(adder_msg) == 1024:
                 c.times = 0
                 c.sleep_times += 1
